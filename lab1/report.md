@@ -12,11 +12,11 @@
 把操作系统加载到内存里不可能由操作系统自己负责，需要由其它程序完成，这个程序在完成"把操作系统加载到内存"后便把CPU控制权交给操作系统。
 
 在QEMU模拟的RISC-V计算机里：
-- QEMU会把作为bootloader的OpenSBI.bin被加载到物理内存以物理地址`0x80000000`开头的区域上
-- 同时内核镜像os.bin被加载到以物理地址`0x80200000`开头的区域上
+- QEMU会把作为bootloader的OpenSBI.bin被加载到物理内存以物理地址 0x80000000 开头的区域上
+- 同时内核镜像os.bin被加载到以物理地址 0x80200000 开头的区域上
 - OpenSBI.bin在完成任务后需要把CPU转交给os.bin，即把pc跳转到os.bin的地址
 
-> **注意**：os.bin如果采用随机地址的话，OpenSBI.bin则不知道把pc跳转到哪里；而OpenSBI.bin采用固定位置是因为RISC-V CPU上电后的第一条指令地址是`0x80000000`，如果OpenSBI不在此地址，CPU无法启动执行。
+> **注意**：os.bin如果采用随机地址的话，OpenSBI.bin则不知道把pc跳转到哪里；而OpenSBI.bin采用固定位置是因为RISC-V CPU上电后的第一条指令地址是 0x80000000 ，如果OpenSBI不在此地址，CPU无法启动执行。
 
 需要解释的是由于这是QEMU模拟的RISC-V计算机不是真正的计算机，这里的OpenSBI.bin本身不直接加载os.bin，实际是QEMU同时将OpenSBI.bin和os.bin加载到各自固定地址，OpenSBI更像"中间人"而非加载器。
 
@@ -32,15 +32,15 @@
 
 ## 4. 入口点设置
 
-在实验代码给定的链接脚本里规定了入口点为`kern_entry`以及内存布局，以.text为例，规定入口点在最前，之后由合并的其它代码段组成，接下来我们还需要设置入口点。
+在实验代码给定的链接脚本里规定了入口点为 kern_entry 以及内存布局，以.text为例，规定入口点在最前，之后由合并的其它代码段组成，接下来我们还需要设置入口点。
 
-首先在entry.S中，使用`.globl`将`kern_entry`声明为全局符号，其他文件（如链接脚本）可以引用它。
+首先在entry.S中，使用 .globl 将 kern_entry 声明为全局符号，其他文件（如链接脚本）可以引用它。
 
-`la sp, bootstacktop`：将`bootstacktop`这个符号所代表的内核栈顶部的位置加载到栈指针寄存器`sp`中。
+la sp, bootstacktop ：将 bootstacktop 这个符号所代表的内核栈顶部的位置加载到栈指针寄存器 sp 中。
 
-entry.S中，`bootstack`是一块内存区域的开始（低地址），`bootstacktop`是这块区域的结束（高地址）。将`sp`设置为`bootstacktop`，正好符合栈从高向低生长的约定以及为之后跳转到`kern_init`做准备。
+entry.S中， bootstack 是一块内存区域的开始（低地址）， bootstacktop 是这块区域的结束（高地址）。将 sp 设置为 bootstacktop ，正好符合栈从高向低生长的约定以及为之后跳转到 kern_init 做准备。
 
-`tail kern_init`：跳转到`kern_init`所在的地址去执行，与标准的函数调用指令`jal`不同，`tail`用于尾调用优化，是一个函数的最后一条指令，可以理解为"我去调用那个函数，但你不必返回到我这里来了"。
+tail kern_init ：跳转到 kern_init 所在的地址去执行，与标准的函数调用指令 jal 不同， tail 用于尾调用优化，是一个函数的最后一条指令，可以理解为"我去调用那个函数，但你不必返回到我这里来了"。
 
 跳转之后操作系统便进入了C语言的环境下，标志将CPU的执行流正式交给了操作系统的C语言主程序。
 
