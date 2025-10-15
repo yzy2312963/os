@@ -96,11 +96,6 @@
   - 阈值分割：只有当剩余空间大于某个最小分割阈值（如 MIN_SPLIT_SIZE）时才对空闲块进行分割，避免产生过小的碎片块。
   - 碎片整理：在碎片总量达到一定阈值时，移动分配给进程的内存分区，以合并那些被阻隔的碎片。
 
-### 前后合并
-- 问题：当前合并函数只会向前后做一次检查。
-- 改进：
-  - 迭代：通过while实现迭代合并，直到前后块不相连。
-
 
 
 # 练习2：实现 Best-Fit 连续物理内存分配算法
@@ -108,13 +103,13 @@
 
 ## 1. Best-fit 算法实现过程
 
-### default_init()
+### best_fit_init()
 - 作用：初始化 PMM 管理器的内部状态。
 - 已完成，不需要修改。
 
 ---
 
-### default_init_memmap(struct Page *base, size_t n)
+### best_fit_init_memmap(struct Page *base, size_t n)
 - 作用：将从 base 开始、长度为 n 的连续页区加入空闲池。
 - 关键操作：
   - 遍历 n 个页，清除 flags、property，set ref = 0（每页初始化）。
@@ -122,7 +117,7 @@
 
 ---
 
-### default_alloc_pages(size_t n)
+### best_fit_alloc_pages(size_t n)
 - 作用：分配连续的 n 页。
 - 关键操作：
   - 搜索过程：
@@ -131,20 +126,19 @@
     - 找到满足需求(p->property >= n)且比当前最佳选择更合适(p->property < min_size)的块，更新page和min_size。
     -如果找到(p->property = n)的块，提前退出。
   - 分配与分割：
-    - 若 original_block_size < =n + 5：多余部分没有超过阈值，将该块从 free_list 中移除（整块分配）。
-    - 若 p->property > n：分割，返回 p（首页）作为分配区，剩余部分的首页为 p + n，设置其 property  =old - n 并重新插入链表（保持有序位置）。
+    - 若 p->property > n：分割，返回 p（首页）作为分配区，剩余部分的首页为 p + n，设置其 property  =p->property - n 并重新插入链表（保持有序位置）。
 
 
 ---
 
-### default_free_pages(struct Page *base, size_t n)
+### best_fit_free_pages(struct Page *base, size_t n)
 - 作用：释放从 base 开始的 n 页并回收到空闲池，尝试合并相邻空闲块。
 - 关键操作：
   - 插入前置处理：
     - base->property = n，SetPageProperty(base)，把 base 标记为空闲块首页。
     - nr_free += n。
-  - 合并：
-    - 用while实现迭代合并，向前后合并迭代合并，直到前后没有地址连续的空闲页块。
+  - 向前合并：
+    - 检查插入位置前一个块 p，若 p + p->property == base，则合并（p->property += base->property），移除 base 的链表节点并清除 base 的 PG_property。
 
 
 ---
