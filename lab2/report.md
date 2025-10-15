@@ -129,7 +129,7 @@
     - 新增变量min_size记录当前最佳选择的块大小，初始值为nr_free + 1。
     - 从 free_list 头开始顺序遍历各空闲块首页 p。
     - 找到满足需求(p->property >= n)且比当前最佳选择更合适(p->property < min_size)的块，更新page和min_size。
-    -如果找到(p->property = n)的块，提前退出。
+    - 如果找到(p->property = n)的块，提前退出。
   - 分配与分割：
     - 若 original_block_size < =n + 5：多余部分没有超过阈值，将该块从 free_list 中移除（整块分配）。
     - 若 p->property > n：分割，返回 p（首页）作为分配区，剩余部分的首页为 p + n，设置其 property  =old - n 并重新插入链表（保持有序位置）。
@@ -199,6 +199,7 @@ satp physical address: 0x0000000080205000
 - 改进：
   - 不在每次 free_pages 时都立即进行合并。而是将合并操作推迟到某个特定时机。
   - 在内存不足或者内核空闲时再合并许多遗留下来的微小碎片。
+
 
 
 
