@@ -1,4 +1,4 @@
-# 练习2：理解内核启动中的程序入口操作
+# 练习1：理解first-fit 连续物理内存分配算法
 
 
 ## 1. 数据结构，函数分析：
@@ -30,13 +30,13 @@
   - 遍历 n 个页，清除 flags、property，set ref = 0（每页初始化）。
   - 在 base 页设置 base->property = n 并设置 PG_property（标记为空闲块首页）。
   - nr_free += n（更新全局空闲页数）。
-  - 将 base 的 page_link 按物理地址顺序插入 free_list（保持链表有序）。
+  - 将 base 的 page_link 按地址顺序插入 free_list（保持链表有序）。
 - 备注：进入空闲链表的只有每个空闲块的首页。
 
 ---
 
 ### default_alloc_pages(size_t n)
-- 作用：分配连续的 n 页（首次适应算法实现）。
+- 作用：分配连续的 n 页。
 - 搜索过程：
   - 从 free_list 头开始顺序遍历各空闲块首页 p。
   - 找到第一个满足 p->property >= n 的块。
@@ -103,8 +103,94 @@
 
 
 
+# 练习2：实现 Best-Fit 连续物理内存分配算法
 
 
+## 1. Best-fit 算法实现过程
+
+### default_init()
+- 作用：初始化 PMM 管理器的内部状态。
+- 已完成，不需要修改。
+
+---
+
+### default_init_memmap(struct Page *base, size_t n)
+- 作用：将从 base 开始、长度为 n 的连续页区加入空闲池。
+- 关键操作：
+  - 遍历 n 个页，清除 flags、property，set ref = 0（每页初始化）。
+  - 将 base 的 page_link 按地址顺序插入 free_list（保持链表有序）。
+
+---
+
+### default_alloc_pages(size_t n)
+- 作用：分配连续的 n 页。
+- 关键操作：
+  - 搜索过程：
+    - 新增变量min_size记录当前最佳选择的块大小，初始值为nr_free + 1。
+    - 从 free_list 头开始顺序遍历各空闲块首页 p。
+    - 找到满足需求(p->property >= n)且比当前最佳选择更合适(p->property < min_size)的块，更新page和min_size。
+    -如果找到(p->property = n)的块，提前退出。
+  - 分配与分割：
+    - 若 original_block_size < =n + 5：多余部分没有超过阈值，将该块从 free_list 中移除（整块分配）。
+    - 若 p->property > n：分割，返回 p（首页）作为分配区，剩余部分的首页为 p + n，设置其 property  =old - n 并重新插入链表（保持有序位置）。
+
+
+---
+
+### default_free_pages(struct Page *base, size_t n)
+- 作用：释放从 base 开始的 n 页并回收到空闲池，尝试合并相邻空闲块。
+- 关键操作：
+  - 插入前置处理：
+    - base->property = n，SetPageProperty(base)，把 base 标记为空闲块首页。
+    - nr_free += n。
+  - 合并：
+    - 用while实现迭代合并，向前后合并迭代合并，直到前后没有地址连续的空闲页块。
+
+
+---
+
+### 测试结果：
+```
+grading: 1 / 6 points
+grading: 2 / 6 points
+grading: 3 / 6 points
+grading: 4 / 6 points
+grading: 5 / 6 points
+grading: 6 / 6 points
+check_alloc_page() succeeded!
+satp virtual address: 0xffffffffc0205000
+satp physical address: 0x0000000080205000
+```
+
+## 2. 分配/释放总体流程（Best-fit 实现）：
+
+- 初始化阶段（pmm_init -> init_pmm_manager -> page_init -> init_memmap）：
+  - pmm_init() 调用 init_pmm_manager()，在其中选择具体的 pmm 管理器（此处为 best_fit_pmm_manager）并调用 pmm_manager->init()，对应 best_fit_init()，它会初始化空闲链表 free_list 并清零 nr_free。
+  - 随后 page_init() 检测物理内存，并为可用内存区域调用 init_memmap()。
+  - init_memmap() 最终调用 best_fit_init_memmap()，该函数将新的空闲内存块按物理地址顺序插入到 free_list 中，以保证链表始终有序。
+
+- 分配时（调用 alloc_pages -> pmm_manager->alloc_pages -> best_fit_alloc_pages）：
+  - 上层通过 alloc_pages(n) 调用，最终转发至 best_fit_alloc_pages(n)。
+  - 搜索：该函数会遍历整个 free_list，寻找一个大小 p->property >= n 且最接近 n 的空闲块（即 p->property 最小）。如果找到大小正好为 n 的块，则提前结束搜索。
+  - 分割与分配：
+    - 如果找到的最佳块大小 original_block_size 与请求大小 n 的差值大于阈值（代码中为 > n + 5），则进行分割。前 n 页被分配，剩余部分形成一个新的、更小的空闲块，并被重新插入到链表中。nr_free 净减少 n。
+    - 如果不满足分割条件，则为了避免产生过小的碎片，将整个块全部分配出去，导致内部碎片。nr_free 减少 original_block_size。
+    - 返回分配到的内存块的首页指针。
+
+- 释放时（调用 free_pages -> pmm_manager->free_pages -> best_fit_free_pages）：
+  - 上层通过 free_pages(base, n) 调用，最终转发至 best_fit_free_pages(base, n)。
+  - 插入：函数首先将要释放的 n 页内存作为一个新的空闲块，按物理地址有序插入到 free_list 中，并更新 nr_free。
+  - 迭代合并：
+    - 向前合并：循环检查新插入块前面的块是否与其物理地址连续。如果连续，则合并它们（更新前块的 property，删除当前块的节点），并继续向前检查，直到无法合并为止。
+    - 向后合并：循环检查合并后块后面的块是否与其物理地址连续。如果连续，则合并它们（更新当前块的 property，删除后块的节点），并继续向后检查，直到无法合并为止。这个过程能有效地将相邻的小碎片合并成大块。
+
+
+## 3. First-fit 算法改进空间：
+
+### 链表搜索效率
+- 问题：每次分配需从头遍历 free_list，最坏时间复杂度为 O(N)。
+- 改进：
+  - 维护按大小分组的子链表：将空闲块按大小分类或按区间划分，分配时先定位合适大小组，减少扫描范围。
 
 
 
