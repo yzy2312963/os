@@ -151,15 +151,17 @@
 
 ### 测试结果：
 ```
-grading: 1 / 6 points
-grading: 2 / 6 points
-grading: 3 / 6 points
-grading: 4 / 6 points
-grading: 5 / 6 points
-grading: 6 / 6 points
-check_alloc_page() succeeded!
-satp virtual address: 0xffffffffc0205000
-satp physical address: 0x0000000080205000
+os@yzy13502629353:~/lab2$ make grade
+>>>>>>>>>> here_make>>>>>>>>>>>
+make[1]: Entering directory '/home/os/lab2' + cc kern/init/entry.S + cc kern/init/init.c + cc kern/libs/stdio.c + cc kern/debug/panic.c + cc kern/driver/dtb.c + cc kern/driver/console.c + cc kern/mm/pmm.c + cc kern/mm/default_pmm.c + cc kern/mm/best_fit_pmm.c + cc libs/printfmt.c + cc libs/sbi.c + cc libs/readline.c + cc libs/string.c + ld bin/kernel riscv64-unknown-elf-objcopy bin/kernel --strip-all -O binary bin/ucore.img make[1]: Leaving directory '/home/os/lab2'
+>>>>>>>>>> here_make>>>>>>>>>>>
+<<<<<<<<<<<<<<< here_run_qemu <<<<<<<<<<<<<<<<<<
+try to run qemu
+qemu pid=57357
+<<<<<<<<<<<<<<< here_run_check <<<<<<<<<<<<<<<<<<
+  -check physical_memory_map_information:    OK
+  -check_best_fit:                           OK
+Total Score: 25/25
 ```
 - 测试结果为满分，顺利通过测试。
 
@@ -199,6 +201,7 @@ satp physical address: 0x0000000080205000
 - 改进：
   - 不在每次 free_pages 时都立即进行合并。而是将合并操作推迟到某个特定时机。
   - 在内存不足或者内核空闲时再合并许多遗留下来的微小碎片。
+
 
 
 
