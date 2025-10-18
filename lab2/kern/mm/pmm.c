@@ -11,6 +11,9 @@
 #include <riscv.h>
 #include <dtb.h>
 
+#include <buddy_system_pmm.h>
+#include <slub_pmm.h>
+
 // virtual address of physical page array
 struct Page *pages;
 // amount of physical memory (in pages)
