@@ -14,17 +14,19 @@
 - 每次发生时钟中断ticks++。
 - 每次中断时判断 ticks % TICK_NUM == 0的真值，为真时，通过print_ticks()输出`100ticks`，同时num++。
 - 当num >= 10时通过<sbi.h>中的关机函数sbi_shutdown()关机。
-完整代码如下
+完整代码如下：
 ```
-        case IRQ_S_TIMER:
-       	    clock_set_next_event();
-            if (++ticks % TICK_NUM == 0) {
-                print_ticks();
-                if (++num >= 10) {
-                    sbi_shutdown();
-                }
-            }
-            break;
+#define TICK_NUM 100
+static int num = 0;
+case IRQ_S_TIMER:
+    clock_set_next_event();
+    if (++ticks % TICK_NUM == 0) {
+        print_ticks();
+        if (++num >= 10) {
+            sbi_shutdown();
+        }
+    }
+    break;
 ```
 ## 2.时钟中断流程：
 
@@ -32,7 +34,7 @@
 在分析时钟中断流程前，需要先了解trapframe数据结构
 
 trapframe：
-- gpr 存放32个通用寄存器，用于恢复。
+- gpr 存放32个通用寄存器，用于恢复上下文信息。
 - status 保存 CPU 的状态信息：
   - 中断使能位​​（SIE）：记录中断是否被允许。
   - ​​特权级信息​​（SPP）：记录中断前是用户态还是内核态。
@@ -51,7 +53,7 @@ trapframe：
 
 # challenge1：描述与理解中断流程
 
-##中断流程：
+## 中断流程：
 - 中断产生，cpu会直接跳转到stevc寄存器指向的位置。
 - 在idt_init(void)函数里设置了stevc的值为&__alltraps，中断发生时会直接跳转到__alltraps。
 - 进入__alltraps入口后先通过SAVE_ALL获取中断前的信息，包括32个通用寄存器，中断发生时的pc值和中断原因等，把中断前的信息按 trapframe 的布局保存到当前栈。
@@ -66,4 +68,5 @@ trapframe：
   - 异常则使用 exception_handler(struct trapframe *tf) 函数。
   - 两个函数都会根据 tf->cause 的值判断中断或异常的类型，然后再采取对应的措施。
 - 处理异常或中断后，trap() 返回，进入__trapret，RESTORE_ALL会把 trapframe 中保存的信息写回， sp 回到中断前的值。
+
 - 最后执行特权返回指令 sret，sret 会读取 sstatus 中的 SPP 位并切换到以前的特权级，CPU 从中断切换回被中断的执行流，继续执行。
