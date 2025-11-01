@@ -11,7 +11,6 @@
 #include <sbi.h>
 
 #define TICK_NUM 100
-static int num = 0;
 
 static void print_ticks() {
     cprintf("%d ticks\n", TICK_NUM);
@@ -132,12 +131,20 @@ void interrupt_handler(struct trapframe *tf) {
              *(3)当计数器加到100的时候，我们会输出一个`100ticks`表示我们触发了100次时钟中断，同时打印次数（num）加一
             * (4)判断打印次数，当打印次数为10时，调用<sbi.h>中的关机函数关机
             */
-            clock_set_next_event();
-            if (++ticks % TICK_NUM == 0) {
+	    clock_set_next_event();
+
+            static int ticks = 0;
+            static int num = 0;
+
+            ticks++;
+
+            if (ticks % TICK_NUM == 0) {
                 print_ticks();
-                if (++num >= 10) {
-                    sbi_shutdown();
-                }
+                num++;
+            }
+
+            if (num >= 10) {
+                sbi_shutdown();
             }
             break;
         case IRQ_H_TIMER:
@@ -177,6 +184,9 @@ void exception_handler(struct trapframe *tf) {
              *(2)输出异常指令地址
              *(3)更新 tf->epc寄存器
             */
+            cprintf("Exception type: Illegal instruction\n");
+    	    cprintf("Illegal instruction caught at 0x%08x\n", tf->epc);
+            tf->epc += 4;
             break;
         case CAUSE_BREAKPOINT:
             //断点异常处理
@@ -185,6 +195,9 @@ void exception_handler(struct trapframe *tf) {
              *(2)输出异常指令地址
              *(3)更新 tf->epc寄存器
             */
+	    cprintf("Exception type: breakpoint\n");
+            cprintf("ebreak caught at 0x%08x\n", tf->epc);
+            tf->epc += 2;
             break;
         case CAUSE_MISALIGNED_LOAD:
             break;
