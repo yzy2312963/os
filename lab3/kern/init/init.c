@@ -24,7 +24,6 @@ int kern_init(void) {
     cputs(message);
 
     print_kerninfo();
-
     // grade_backtrace();
     idt_init();  // init interrupt descriptor table
 
@@ -34,6 +33,9 @@ int kern_init(void) {
 
     clock_init();   // init clock interrupt
     intr_enable();  // enable irq interrupt
+    
+    asm("mret");
+    asm("ebreak");
 
     /* do nothing */
     while (1)
@@ -54,4 +56,3 @@ void __attribute__((noinline)) grade_backtrace0(int arg0, int arg1, int arg2) {
 }
 
 void grade_backtrace(void) { grade_backtrace0(0, (uintptr_t)kern_init, 0xffff0000); }
-
