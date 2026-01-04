@@ -32,17 +32,22 @@
 ### 5. 端到端调度流程
 
 ```
-clock interrupt → interrupt_handler() → clock_set_next_event()
+clock interrupt
 	    ↓
 	    sched_class_proc_tick(current)
 	    ↓ (若 proc_tick 设置 need_resched)
 trap() 尾声在用户态检测 need_resched
 	    ↓
 	    schedule()
+	    ↓ (current->state == PROC_RUNNABLE，当前进程仍可运行时)
+class.enqueue 把进程放入队列
 	    ↓
-class.enqueue(当前进程仍可运行时) → class.pick_next()
-	    ↓
-	    class.dequeue(next) → proc_run(next)
+	    next = sched_class_pick_next() → next!=NULL → sched_class_dequeue(next) → next != current → proc_run(next)
+		↓ (next == NULL)
+		next = idleproc 空转
+		↓ (next != current)
+		proc_run(next);
+
 ```
 
 - 定时器中断（IRQ_S_TIMER）负责安排下一次中断，并调用 `sched_class_proc_tick(current)`，让具体调度类递减 `time_slice`，在预算用尽时设置 `current->need_resched`。
