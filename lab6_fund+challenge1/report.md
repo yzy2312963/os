@@ -72,8 +72,8 @@ class.enqueue 把进程放入队列
 - **公平性**：Lab5 由于缺少时间片和 `need_resched` 协议，运行中的进程必须显式让出（例如系统调用返回前设置 `need_resched`）才能切换，极端情况下会造成长时间占用。Lab6 的 RR 则确保所有 `PROC_RUNNABLE` 进程按固定时间片轮转，调度器可以自动抢占，从而提高响应性和公平性。
 
 ### 2. 典型函数对比与改动原因
-- **`schedule()`（[lab5/kern/schedule/sched.c](lab5/kern/schedule/sched.c#L23-L58) vs [lab6/kern/schedule/sched.c](lab6/kern/schedule/sched.c#L62-L99)）**：Lab5 直接遍历全局 `proc_list`，顺序固定、无法复用其他数据结构；Lab6 通过 `sched_class->enqueue/pick_next/dequeue` 与 `run_queue` 协作，将策略与框架彻底分离。如果仍沿用 Lab5 实现，RR 及后续 stride 算法的队列操作都无法插入，调度器也无法使用优先队列/斜堆等复杂结构。
-- **`wakeup_proc()`（[lab5/kern/schedule/sched.c](lab5/kern/schedule/sched.c#L1-L22) vs [lab6/kern/schedule/sched.c](lab6/kern/schedule/sched.c#L103-L133)）**：Lab5 唤醒后不触碰任何队列，导致 Lab6 的 `run_queue` 无法及时更新。Lab6 版本在进程变为 `PROC_RUNNABLE` 后立即调用 `sched_class->enqueue()`，否则就绪队列和真实状态将不一致，进程可能永远得不到调度。
+- **`schedule()`（[lab5/kern/schedule/sched.c](../lab5/kern/schedule/sched.c#L23-L58) vs [lab6/kern/schedule/sched.c](kern/schedule/sched.c#L62-L99)）**：Lab5 直接遍历全局 `proc_list`，顺序固定、无法复用其他数据结构；Lab6 通过 `sched_class->enqueue/pick_next/dequeue` 与 `run_queue` 协作，将策略与框架彻底分离。如果仍沿用 Lab5 实现，RR 及后续 stride 算法的队列操作都无法插入，调度器也无法使用优先队列/斜堆等复杂结构。
+- **`wakeup_proc()`（[lab5/kern/schedule/sched.c](../lab5/kern/schedule/sched.c#L1-L22) vs [lab6/kern/schedule/sched.c](kern/schedule/sched.c#L103-L133)）**：Lab5 唤醒后不触碰任何队列，导致 Lab6 的 `run_queue` 无法及时更新。Lab6 版本在进程变为 `PROC_RUNNABLE` 后立即调用 `sched_class->enqueue()`，否则就绪队列和真实状态将不一致，进程可能永远得不到调度。
 
 ### 3. RR 各函数实现思路
 - **`RR_init()`**：使用 `list_init(&rq->run_list)` 把就绪链表设为空，再把 `proc_num` 置零并清空 `lab6_run_pool`。若不初始化 `run_list`/`proc_num`，后续 `list_empty()` 与可运行进程计数都会出现脏数据。
